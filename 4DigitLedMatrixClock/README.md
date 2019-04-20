@@ -41,15 +41,15 @@ cf) 시간을 맞추는 영상은 촬영하지 못하였음
 
 - **온습도센서(DHT22)**
 
-![](image\DHT22_library.png)
+![](image/DHT22_library.png)
 
 - **LED 도트 매트릭스(MAX7219)**
 
-![](image\max7219_library.png)
+![](image/max7219_library.png)
 
 - **RTC(DS3231)**
 
-![](image\RTC_DS3231_library.png)
+![](image/RTC_DS3231_library.png)
 
 
 
