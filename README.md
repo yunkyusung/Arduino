@@ -1,2 +1,3 @@
 # Arduino
-Arduino project
+아두이노를 사용하여 다양한 프로젝트를 수행합니다.
+
