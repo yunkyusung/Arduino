@@ -1,15 +1,19 @@
 
+#include <SimpleDHT.h>
 #include <Wire.h>       // I2C 통신 라이브러리
 #include "RTClib.h"     // RTC(DS3231,메카솔루션), SCL <--> A5   SDA <--> A4  VCC <--> 5V
 #include "LedControl.h"                     // 8X8 LED Matrix (MAX7219)
-LedControl lc = LedControl(12, 11, 10, 4); // 핀들을 접속 (DIN 핀,CLK 핀, CS핀, 주소) 주소: 모들의 갯수
+LedControl lc = LedControl(12, 11, 10, 4);  // 핀들을 접속 (DIN 핀,CLK 핀, CS핀, 주소) 주소: 모들의 갯수
 
-#define BTN_UP_PIN 7
-#define BTN_DOWN_PIN 6
 #define BTN_MODE_PIN 5
+#define BTN_DOWN_PIN 6
+#define BTN_UP_PIN 7
+#define DHT22_PIN 9
 #define BRIGHTNESS 8    // 밝기 설정(0~15까지 밝기 설정가능)
+#define INTERVAL 10000  // 온습도 표시 간격(ms) /2
 
 RTC_DS3231 rtc;         // RTC 객체 생성
+SimpleDHT22 dht22(DHT22_PIN);
 
 //char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
@@ -53,17 +57,20 @@ byte chars[][8] = {
   { B00000000,  B01100011,  B01100011,  B00110110,  B00011100,  B00110110,  B01100011,  B01100011}, //X 23
   { B00000000,  B01100110,  B01100110,  B01100110,  B00111100,  B00011000,  B00011000,  B00011000}, //Y 24
   { B00000000,  B01111110,  B00000110,  B00001100,  B00011000,  B00110000,  B01100000,  B01111110}, //Z 25
-  { B00000000,  B00000000,  B00100010,  B00010100,  B00001000,  B00010100,  B00100010,  B00000000}  //x 26
+  { B00000000,  B00000000,  B00100010,  B00010100,  B00001000,  B00010100,  B00100010,  B00000000}, //x 26
+  { B01000000,  B10100110,  B01001001,  B00010000,  B00010000,  B00010000,  B00001001,  B00000110}, //oC 27
+  { B01000100,  B10100100,  B10101000,  B01001000,  B00010010,  B00010101,  B00100101,  B00100010} //% 28
 };
 
 uint8_t now_hour, now_min, now_sec;
 uint8_t mode = 0;       //mode 0:clock , 1:hour setting ,  2: min setting
 uint8_t flag = true;
+unsigned long previousMillis = 0;     // will store last time
+//const long interval = 10000;           // interval at which to blink (milliseconds)
 
 void setup () {
-  //Wire.begin();         // I2C 통신 초기화
-  Serial.begin(9600);
-  delay(1000);
+  Serial.begin(115200);
+  delay(500);
 
   // 8X8 LED Martix
   for (int MatNo = 0; MatNo < 4; MatNo++) {
@@ -105,7 +112,31 @@ void loop () {
   now_hour = now.hour();
   now_min = now.minute();
   //  now_sec = now.second();
+  
+  float temperature = 0;
+  int i_temp;
+  float humidity = 0;
+  int i_humi;
+  int err = SimpleDHTErrSuccess;
+  unsigned long currentMillis = millis();
 
+  if (currentMillis - previousMillis >= INTERVAL) {
+    previousMillis = currentMillis;
+    if ((err = dht22.read2(&temperature, &humidity, NULL)) != SimpleDHTErrSuccess){
+      display_DHT22_error();    // 온습도계 오류 표시
+      delay(1500);
+    }else{
+      i_temp = (int)(temperature*10.);
+      i_humi = (int)(humidity*10.);
+      display_tempNhumi(i_temp/100, (i_temp%100)/10, i_temp%10, 27); // 온도 표시
+      display_dp();   // 소수점 표시
+      delay(1500);
+      display_tempNhumi(i_humi/100, (i_humi%100)/10, i_humi%10, 28); // 습도 표시
+      display_dp();   // 소수점 표시
+      delay(1500);
+    }
+  }
+  
   //모드 변경
   if (digitalRead(BTN_MODE_PIN) == LOW) {
     delay(50);  // 채터링 방지
@@ -179,6 +210,25 @@ void display_sec() {
   lc.setLed(1, 6, 7, flag);
 }
 
+// 온습도 표시
+void display_tempNhumi(int temp10, int temp1, int temp01, int unit) {
+  for (int line = 0; line < 8; line++) {
+    lc.setRow(0, line, digits[temp10][line]); // 10s temp/humi
+    lc.setRow(1, line, digits[temp1][line]);  // 1s temp/humi
+    lc.setRow(2, line, digits[temp01][line]); // 0.1s temp/humi
+    lc.setRow(3, line, chars[unit][line]);    // c or %
+  }
+}
+
+// 소수점 표시
+void display_dp() {
+  flag = !flag;
+  lc.setLed(1, 6, 7, true); //lc.setLed(no,col,row,true);
+  lc.setLed(1, 7, 7, true);
+//  lc.setLed(2, 6, 0, true); //lc.setLed(no,col,row,true);
+//  lc.setLed(2, 7, 0, true);
+}
+
 // 시간,분 표시
 void display_time(int hour10, int hour1, int min10, int min1) {
   for (int line = 0; line < 8; line++) {
@@ -200,6 +250,17 @@ void display_clear(int mode) {
     for (int MatNo = 2; MatNo < 4; MatNo++) {
       lc.clearDisplay(MatNo);
     }
+  }
+}
+
+
+// 온습도계 오류 표시
+void display_DHT22_error() {
+  for (int line = 0; line < 8; line++) {
+    lc.setRow(0, line, chars[19][line]); // T
+    lc.setRow(1, line, chars[12][line]); // M
+    lc.setRow(2, line, chars[15][line]); // P
+    lc.setRow(3, line, chars[26][line]); // x
   }
 }
 
