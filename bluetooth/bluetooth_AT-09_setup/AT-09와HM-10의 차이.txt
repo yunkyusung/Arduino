@@ -1,0 +1,7 @@
+9600bps로 AT명령어를 보냈을때 OK란 응답을 받았으므로, AT-09 초기 BAUD rate가 9600임을 알 수 있었다. 
+
+기존에 짜놓은 HM-10 코드가 동작하지 않는 이유를 알았다. 즉 HM-10의 경우 no line ending이다. 즉 /r/n을 명령어에 포함하지 않아야하고, 출력 결과에도 포함되지 않는다. 그러나 AT-09의 경우 위의 serial monitor처럼 NL/CR을 추가해서 명령을 보내야하며, 결과값에도 NL/CR이 포함된다.
+[출처] AT-09 BLE 모듈 AT명령어로 동작 확인하기|작성자 ZETA7
+
+https://blog.naver.com/PostView.nhn?isHttpsRedirect=true&blogId=zeta0807&logNo=221117135434&parentCategoryNo=&categoryNo=7&viewDate=&isShowPopularPosts=false&from=postView
+
